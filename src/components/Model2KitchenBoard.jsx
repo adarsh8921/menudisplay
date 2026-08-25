@@ -61,7 +61,7 @@ export default function Model2KitchenBoard() {
     loadData();
   }, []);
 
-  // Automatic smooth TV Horizontal Auto-Scroll
+  // Automatic smooth TV Horizontal Infinite Auto-Scroll
   useEffect(() => {
     if (!isAutoScroll || loading) return;
 
@@ -83,8 +83,10 @@ export default function Model2KitchenBoard() {
     const speed = 1.5; // Smooth TV marquee pixel advance per frame
     const scrollStep = () => {
       if (!isPaused && container) {
-        if (container.scrollLeft + container.clientWidth >= container.scrollWidth - 2) {
-          container.scrollLeft = 0; // Seamless loop back to beginning
+        // True infinite loop: when halfway (first clone set passed), instantly reset to 0 seamlessly
+        const halfWidth = container.scrollWidth / 2;
+        if (halfWidth > 0 && container.scrollLeft >= halfWidth) {
+          container.scrollLeft -= halfWidth;
         } else {
           container.scrollLeft += speed;
         }
@@ -244,7 +246,8 @@ export default function Model2KitchenBoard() {
                 )}
 
                 <div className="m2-tv-grid">
-                  {catGroup.products.map((prod, idx) => {
+                  {/* Render duplicated item array for seamless infinite marquee loop */}
+                  {[...catGroup.products, ...catGroup.products].map((prod, idx) => {
                     const priceNum = parseFloat(prod.price.replace(/[^\d.]/g, '')) || 0;
                     const mrpNum = prod.mrp ? parseFloat(prod.mrp.replace(/[^\d.]/g, '')) : null;
                     const discount = mrpNum && mrpNum > priceNum ? Math.round(((mrpNum - priceNum) / mrpNum) * 100) : 0;
@@ -252,7 +255,7 @@ export default function Model2KitchenBoard() {
 
                     return (
                       <div 
-                        key={prod.id} 
+                        key={`${prod.id}-${idx}`} 
                         className={`m2-tv-card ${timingInfo.isActive ? 'timing-active' : 'timing-scheduled'}`}
                       >
                         {/* Dynamic API & Feature Badges */}
@@ -260,11 +263,11 @@ export default function Model2KitchenBoard() {
                           <span className={`card-badge ${prod.badges[0].name.toLowerCase().includes('bestseller') ? 'bestseller' : 'special'}`}>
                             <Award size={11} className="badge-svg-icon" /> {prod.badges[0].name}
                           </span>
-                        ) : idx === 0 ? (
+                        ) : (idx % catGroup.products.length) === 0 ? (
                           <span className="card-badge bestseller">
                             <Award size={11} className="badge-svg-icon" /> Chef's Pick
                           </span>
-                        ) : idx === 1 && discount > 0 ? (
+                        ) : (idx % catGroup.products.length) === 1 && discount > 0 ? (
                           <span className="card-badge special">
                             <Flame size={11} className="badge-svg-icon" /> Special {discount}% Off
                           </span>
