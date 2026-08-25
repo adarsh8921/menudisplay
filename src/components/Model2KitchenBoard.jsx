@@ -175,14 +175,16 @@ export default function Model2KitchenBoard() {
           <div className="m2-categories-container">
             {categories.map((catGroup) => (
               <section key={catGroup.id} className="m2-cat-section">
-                <div className="m2-cat-header">
-                  <h2 className="m2-cat-name">
-                    <UtensilsCrossed size={18} className="cat-icon-svg" />
-                    {catGroup.name}
-                  </h2>
-                  <div className="m2-cat-divider"></div>
-                  <span className="cat-count-badge">{catGroup.products.length} ITEMS</span>
-                </div>
+                {categories.length > 1 && catGroup.name !== 'MENU ITEMS' && (
+                  <div className="m2-cat-header">
+                    <h2 className="m2-cat-name">
+                      <UtensilsCrossed size={18} className="cat-icon-svg" />
+                      {catGroup.name}
+                    </h2>
+                    <div className="m2-cat-divider"></div>
+                    <span className="cat-count-badge">{catGroup.products.length} ITEMS</span>
+                  </div>
+                )}
 
                 <div className="m2-tv-grid">
                   {catGroup.products.map((prod, idx) => {

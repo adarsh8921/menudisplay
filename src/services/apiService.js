@@ -20,31 +20,15 @@ export async function fetchKioskProducts() {
     const categoriesWithProducts = [];
 
     if (data.products && Array.isArray(data.products)) {
-      const categoryMap = new Map();
-
+      const allProductsList = [];
       data.products.forEach((p) => {
-        const transformedProduct = transformApiProduct(p);
-        
-        let catName = 'FOOD';
-        if (p.category === 8 || transformedProduct.name.toLowerCase().includes('toy') || transformedProduct.name.toLowerCase().includes('baloon')) {
-          catName = 'TOYS';
-        } else if (p.category === 9 || p.category === 10 || p.category === 11) {
-          catName = 'GENERAL SELECTION';
-        }
-
-        if (!categoryMap.has(catName)) {
-          categoryMap.set(catName, []);
-        }
-        categoryMap.get(catName).push(transformedProduct);
+        allProductsList.push(transformApiProduct(p));
       });
 
-      let catIdCounter = 1;
-      categoryMap.forEach((productsList, catName) => {
-        categoriesWithProducts.push({
-          id: catIdCounter++,
-          name: catName,
-          products: productsList,
-        });
+      categoriesWithProducts.push({
+        id: 1,
+        name: 'MENU ITEMS',
+        products: allProductsList,
       });
     } else if (Array.isArray(data.categories)) {
       data.categories.forEach((cat) => {
