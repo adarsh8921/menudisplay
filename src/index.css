@@ -746,12 +746,63 @@ html, body {
 .m2-tv-body {
   height: 79vh;
   padding: 1.2vh 2.5vw;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
+  justify-content: center;
   position: relative;
   z-index: 1;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar for TV appearance while maintaining scrollability */
+.m2-tv-body::-webkit-scrollbar {
+  height: 4px;
+}
+.m2-tv-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.m2-tv-body::-webkit-scrollbar-thumb {
+  background: rgba(235, 90, 40, 0.2);
+  border-radius: 4px;
+}
+
+.m2-autoscroll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(10px, 1.2vh, 12px);
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  letter-spacing: 0.4px;
+  transition: all 0.25s ease;
+}
+
+.theme-cream .m2-autoscroll-toggle {
+  background: #ffffff;
+  border: 1px solid rgba(220, 210, 200, 0.9);
+  color: #78716c;
+  box-shadow: 0 2px 8px rgba(180, 130, 90, 0.06);
+}
+
+.m2-autoscroll-toggle.active {
+  background: rgba(235, 90, 40, 0.15);
+  border-color: rgba(235, 90, 40, 0.4);
+  color: #eb5a28;
+}
+
+.theme-cream .m2-autoscroll-toggle.active {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #ea580c;
 }
 
 .m2-loading-screen {
@@ -781,16 +832,19 @@ html, body {
 
 .m2-categories-container {
   display: flex;
-  flex-direction: column;
-  gap: 2vh;
-  justify-content: space-evenly;
+  flex-direction: row;
+  gap: 2vw;
   height: 100%;
+  width: max-content;
+  align-items: center;
 }
 
 .m2-cat-section {
   display: flex;
   flex-direction: column;
   gap: 1.2vh;
+  height: 100%;
+  justify-content: center;
 }
 
 .m2-cat-header {
@@ -851,11 +905,15 @@ html, body {
   background: rgba(194, 65, 12, 0.08);
 }
 
-/* TV Product Cards Grid (Pinterest/Dribbble Warm Modern Card Style) */
+/* TV Product Cards Grid (Horizontal 3-row grid or auto-flow column for smooth TV scrolling) */
 .m2-tv-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.2vw;
+  grid-template-rows: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(290px, 23vw, 360px);
+  gap: 1.4vh 1.2vw;
+  height: 100%;
+  width: max-content;
 }
 
 .m2-tv-card {
@@ -863,13 +921,14 @@ html, body {
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 20px;
-  padding: 1.4vh 1.1vw;
+  padding: 1.2vh 1vw;
   display: flex;
   align-items: center;
-  gap: 1.1vw;
+  gap: 1vw;
   backdrop-filter: blur(12px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  min-width: 0;
 }
 
 .theme-cream .m2-tv-card {
@@ -1627,9 +1686,26 @@ html, body {
     justify-content: center;
   }
 
+  .m2-categories-container {
+    flex-direction: column !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .m2-cat-section {
+    width: 100% !important;
+    height: auto !important;
+  }
+
   .m2-tv-grid {
+    display: grid !important;
+    grid-template-rows: none !important;
+    grid-auto-flow: row !important;
+    grid-auto-columns: auto !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
   @media (max-width: 480px) {

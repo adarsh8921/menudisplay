@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { fetchKioskProducts } from '../services/apiService';
 import houseMasterLogo from '../assets/House Master logo_page-0001.png';
 import houseMasterLogoBlack from '../assets/House Master logo_page black.png';
@@ -14,7 +14,9 @@ import {
   Truck, 
   MapPin, 
   CheckCircle2,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Pause,
+  Play
 } from 'lucide-react';
 
 export default function Model2KitchenBoard() {
@@ -24,6 +26,8 @@ export default function Model2KitchenBoard() {
   const [nowDate, setNowDate] = useState(new Date());
   const [themeMode, setThemeMode] = useState('cream'); // 'cream' (default) | 'dark' | 'golden'
   const [sessionFilter, setSessionFilter] = useState('all'); // 'all' | 'now' | 'breakfast' | 'lunch' | 'evening-snacks'
+  const [isAutoScroll, setIsAutoScroll] = useState(true);
+  const scrollContainerRef = useRef(null);
 
   // Live real-time clock for TV display
   useEffect(() => {
@@ -56,6 +60,50 @@ export default function Model2KitchenBoard() {
 
     loadData();
   }, []);
+
+  // Automatic smooth TV Horizontal Auto-Scroll
+  useEffect(() => {
+    if (!isAutoScroll || loading) return;
+
+    let animationFrameId;
+    let isPaused = false;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const onMouseEnter = () => { isPaused = true; };
+    const onMouseLeave = () => { isPaused = false; };
+    const onTouchStart = () => { isPaused = true; };
+    const onTouchEnd = () => { isPaused = false; };
+
+    container.addEventListener('mouseenter', onMouseEnter);
+    container.addEventListener('mouseleave', onMouseLeave);
+    container.addEventListener('touchstart', onTouchStart);
+    container.addEventListener('touchend', onTouchEnd);
+
+    const speed = 1.5; // Smooth TV marquee pixel advance per frame
+    const scrollStep = () => {
+      if (!isPaused && container) {
+        if (container.scrollLeft + container.clientWidth >= container.scrollWidth - 2) {
+          container.scrollLeft = 0; // Seamless loop back to beginning
+        } else {
+          container.scrollLeft += speed;
+        }
+      }
+      animationFrameId = requestAnimationFrame(scrollStep);
+    };
+
+    animationFrameId = requestAnimationFrame(scrollStep);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      if (container) {
+        container.removeEventListener('mouseenter', onMouseEnter);
+        container.removeEventListener('mouseleave', onMouseLeave);
+        container.removeEventListener('touchstart', onTouchStart);
+        container.removeEventListener('touchend', onTouchEnd);
+      }
+    };
+  }, [isAutoScroll, loading, categories]);
 
   // Helper: check if a product timing is currently active based on start_time and end_time
   const checkTimingStatus = (timings) => {
@@ -151,6 +199,15 @@ export default function Model2KitchenBoard() {
             </button>
           </div>
 
+          <button 
+            className={`m2-autoscroll-toggle ${isAutoScroll ? 'active' : ''}`}
+            onClick={() => setIsAutoScroll(!isAutoScroll)}
+            title={isAutoScroll ? "Click to Pause Auto-Scroll" : "Click to Resume Auto-Scroll"}
+          >
+            {isAutoScroll ? <Pause size={12} className="m2-badge-icon" /> : <Play size={12} className="m2-badge-icon" />}
+            <span>{isAutoScroll ? 'AUTO SCROLL: ON' : 'AUTO SCROLL: OFF'}</span>
+          </button>
+
           <div className="m2-time-badge">
             <span className="pulse-dot"></span>
             <Clock size={15} className="m2-badge-icon" />
@@ -165,7 +222,7 @@ export default function Model2KitchenBoard() {
       </header>
 
       {/* Main Content Area */}
-      <main className="m2-tv-body">
+      <main className="m2-tv-body" ref={scrollContainerRef}>
         {loading ? (
           <div className="m2-loading-screen">
             <div className="spinner"></div>
