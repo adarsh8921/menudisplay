@@ -61,35 +61,53 @@ export default function Model2KitchenBoard() {
     loadData();
   }, []);
 
-  // Automatic smooth TV Horizontal Infinite Auto-Scroll
+  // Automatic smooth TV Horizontal Infinite Auto-Scroll with sub-pixel accuracy
   useEffect(() => {
     if (!isAutoScroll || loading) return;
 
     let animationFrameId;
     let isPaused = false;
+    let lastTime = performance.now();
+    let scrollPos = 0;
     const container = scrollContainerRef.current;
     if (!container) return;
 
+    // Initialize scroll position from current container state
+    scrollPos = container.scrollLeft;
+
     const onMouseEnter = () => { isPaused = true; };
-    const onMouseLeave = () => { isPaused = false; };
+    const onMouseLeave = () => { 
+      isPaused = false; 
+      lastTime = performance.now();
+      scrollPos = container.scrollLeft;
+    };
     const onTouchStart = () => { isPaused = true; };
-    const onTouchEnd = () => { isPaused = false; };
+    const onTouchEnd = () => { 
+      isPaused = false; 
+      lastTime = performance.now();
+      scrollPos = container.scrollLeft;
+    };
 
     container.addEventListener('mouseenter', onMouseEnter);
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('touchstart', onTouchStart);
     container.addEventListener('touchend', onTouchEnd);
 
-    const speed = 1.5; // Smooth TV marquee pixel advance per frame
-    const scrollStep = () => {
-      if (!isPaused && container) {
-        // True infinite loop: when halfway (first clone set passed), instantly reset to 0 seamlessly
+    // Speed in pixels per second (25px/sec = ~0.4px per frame at 60fps for slow, smooth reading)
+    const pixelsPerSecond = 25;
+
+    const scrollStep = (currentTime) => {
+      const delta = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+
+      if (!isPaused && container && delta > 0 && delta < 0.1) {
+        scrollPos += pixelsPerSecond * delta;
         const halfWidth = container.scrollWidth / 2;
-        if (halfWidth > 0 && container.scrollLeft >= halfWidth) {
-          container.scrollLeft -= halfWidth;
-        } else {
-          container.scrollLeft += speed;
+
+        if (halfWidth > 0 && scrollPos >= halfWidth) {
+          scrollPos -= halfWidth;
         }
+        container.scrollLeft = scrollPos;
       }
       animationFrameId = requestAnimationFrame(scrollStep);
     };
