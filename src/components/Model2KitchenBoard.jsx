@@ -44,6 +44,7 @@ export default function Model2KitchenBoard() {
   }, []);
 
   const [apiEndpoint, setApiEndpoint] = useState('GRD5001');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -54,6 +55,8 @@ export default function Model2KitchenBoard() {
         if (res.apiEndpoint) {
           setApiEndpoint(res.apiEndpoint);
         }
+      } else {
+        setErrorMsg(`Failed: ${res.error || 'No categories found'}`);
       }
       setLoading(false);
     }
@@ -102,11 +105,21 @@ export default function Model2KitchenBoard() {
 
       if (!isPaused && container && delta > 0 && delta < 0.1) {
         scrollPos += pixelsPerSecond * delta;
-        const halfWidth = container.scrollWidth / 2;
-
-        if (halfWidth > 0 && scrollPos >= halfWidth) {
-          scrollPos -= halfWidth;
+        
+        // Find the wrapper and its first child for exact width calculation
+        const wrapper = container.querySelector('.marquee-wrapper');
+        const firstSet = wrapper ? wrapper.children[0] : null;
+        
+        if (firstSet) {
+          // The distance to loop is exactly the width of the first set PLUS the gap (2vw).
+          const gapPx = window.innerWidth * 0.02; // 2vw gap
+          const loopWidth = firstSet.getBoundingClientRect().width + gapPx;
+          
+          if (loopWidth > 0 && scrollPos >= loopWidth) {
+            scrollPos -= loopWidth;
+          }
         }
+        
         container.scrollLeft = scrollPos;
       }
       animationFrameId = requestAnimationFrame(scrollStep);
@@ -248,133 +261,267 @@ export default function Model2KitchenBoard() {
             <div className="spinner"></div>
             <p>CONNECTING TO RESTAURANT MENU FEED...</p>
           </div>
+        ) : errorMsg ? (
+          <div className="m2-loading-screen" style={{color: 'red'}}>
+            <p>{errorMsg}</p>
+          </div>
         ) : (
-          <div className="m2-categories-container">
-            {categories.map((catGroup) => (
-              <section key={catGroup.id} className="m2-cat-section">
-                {categories.length > 1 && catGroup.name !== 'MENU ITEMS' && (
-                  <div className="m2-cat-header">
-                    <h2 className="m2-cat-name">
-                      <UtensilsCrossed size={18} className="cat-icon-svg" />
-                      {catGroup.name}
-                    </h2>
-                    <div className="m2-cat-divider"></div>
-                    <span className="cat-count-badge">{catGroup.products.length} ITEMS</span>
-                  </div>
-                )}
+          <div className="marquee-wrapper" style={{ display: 'flex', gap: '2vw', height: '100%' }}>
+            {/* First Set */}
+            <div className="m2-categories-container">
+              {categories.map((catGroup, catIdx) => (
+                <section key={`set1-${catGroup.id}-${catIdx}`} className="m2-cat-section">
+                  {catGroup.products.length > 0 && catGroup.name !== 'MENU ITEMS' && (
+                    <div className="m2-cat-header">
+                      <h2 className="m2-cat-name">
+                        <UtensilsCrossed size={18} className="cat-icon-svg" />
+                        {catGroup.name}
+                      </h2>
+                      <div className="m2-cat-divider"></div>
+                      <span className="cat-count-badge">{catGroup.products.length} ITEMS</span>
+                    </div>
+                  )}
 
-                <div className="m2-tv-grid">
-                  {/* Render duplicated item array for seamless infinite marquee loop */}
-                  {[...catGroup.products, ...catGroup.products].map((prod, idx) => {
-                    const priceNum = parseFloat(prod.price.replace(/[^\d.]/g, '')) || 0;
-                    const mrpNum = prod.mrp ? parseFloat(prod.mrp.replace(/[^\d.]/g, '')) : null;
-                    const discount = mrpNum && mrpNum > priceNum ? Math.round(((mrpNum - priceNum) / mrpNum) * 100) : 0;
-                    const timingInfo = checkTimingStatus(prod.timings);
+                  <div className="m2-tv-grid">
+                    {catGroup.products.map((prod, idx) => {
+                      const priceNum = parseFloat(prod.price.replace(/[^\d.]/g, '')) || 0;
+                      const mrpNum = prod.mrp ? parseFloat(prod.mrp.replace(/[^\d.]/g, '')) : null;
+                      const discount = mrpNum && mrpNum > priceNum ? Math.round(((mrpNum - priceNum) / mrpNum) * 100) : 0;
+                      const timingInfo = checkTimingStatus(prod.timings);
 
-                    return (
-                      <div 
-                        key={`${prod.id}-${idx}`} 
-                        className={`m2-tv-card ${timingInfo.isActive ? 'timing-active' : 'timing-scheduled'}`}
-                      >
-                        {/* Dynamic API & Feature Badges */}
-                        {prod.badges && prod.badges.length > 0 ? (
-                          <span className={`card-badge ${prod.badges[0].name.toLowerCase().includes('bestseller') ? 'bestseller' : 'special'}`}>
-                            <Award size={11} className="badge-svg-icon" /> {prod.badges[0].name}
-                          </span>
-                        ) : (idx % catGroup.products.length) === 0 ? (
-                          <span className="card-badge bestseller">
-                            <Award size={11} className="badge-svg-icon" /> Chef's Pick
-                          </span>
-                        ) : (idx % catGroup.products.length) === 1 && discount > 0 ? (
-                          <span className="card-badge special">
-                            <Flame size={11} className="badge-svg-icon" /> Special {discount}% Off
-                          </span>
-                        ) : null}
-
-                        {/* Timing Live Status Indicator */}
-                        {prod.timings && prod.timings.length > 0 && (
-                          <span className={`card-badge-timing ${timingInfo.isActive ? 'now-available' : 'upcoming'}`}>
-                            {timingInfo.isActive ? '● ACTIVE NOW' : '🕒 SCHEDULED'}
-                          </span>
-                        )}
-
-                        <div className="m2-card-img-wrap">
-                          {prod.image ? (
-                            <img
-                              src={prod.image}
-                              alt={prod.name}
-                              className="m2-card-img"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                if (e.target.nextSibling) {
-                                  e.target.nextSibling.style.display = 'flex';
-                                }
-                              }}
-                            />
+                      return (
+                        <div 
+                          key={`set1-${prod.id}-${idx}`} 
+                          className={`m2-tv-card ${timingInfo.isActive ? 'timing-active' : 'timing-scheduled'}`}
+                        >
+                          {/* Dynamic API & Feature Badges */}
+                          {prod.badges && prod.badges.length > 0 ? (
+                            <span className={`card-badge ${prod.badges[0].name.toLowerCase().includes('bestseller') ? 'bestseller' : 'special'}`}>
+                              <Award size={11} className="badge-svg-icon" /> {prod.badges[0].name}
+                            </span>
+                          ) : (idx % catGroup.products.length) === 0 ? (
+                            <span className="card-badge bestseller">
+                              <Award size={11} className="badge-svg-icon" /> Chef's Pick
+                            </span>
+                          ) : (idx % catGroup.products.length) === 1 && discount > 0 ? (
+                            <span className="card-badge special">
+                              <Flame size={11} className="badge-svg-icon" /> Special {discount}% Off
+                            </span>
                           ) : null}
-                          <div
-                            className="m2-card-img-placeholder"
-                            style={{ display: prod.image ? 'none' : 'flex' }}
-                          >
-                            <span>{prod.name.charAt(0)}</span>
-                          </div>
-                        </div>
 
-                        <div className="m2-card-content">
-                          <div className="m2-card-meta-row">
-                            {/* Food Type Indicator Dot/Pill (Veg / Non Veg) */}
-                            {prod.foodType && (
-                              <span className={`m2-diet-badge ${prod.foodType.toLowerCase().includes('non') ? 'non-veg' : 'veg'}`}>
-                                <span className="diet-dot"></span>
-                                {prod.foodType}
-                              </span>
-                            )}
-
-                            {/* Session Timing Pill with Start & End Time (e.g. 12:45 - 03:45) */}
-                            {prod.timings && prod.timings.length > 0 ? (
-                              <span className={`m2-timing-pill ${timingInfo.isActive ? 'active-window' : ''}`} title={`${prod.timings[0].startTime} to ${prod.timings[0].endTime}`}>
-                                <Clock size={10} className="timing-icon" />
-                                <span className="session-txt">{prod.timings[0].sessionName.replace('-', ' ')}</span>
-                                <span className="time-range-txt">
-                                  {prod.timings[0].startTime.slice(0, 5)} - {prod.timings[0].endTime.slice(0, 5)}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="m2-category-pill">{catGroup.name}</span>
-                            )}
-                          </div>
-
-                          <h3 className="m2-card-title">{prod.name}</h3>
-
-                          {/* Manufacturer / Subtitle if available */}
-                          {prod.manufacturer && (
-                            <span className="m2-mfr-subtitle">By {prod.manufacturer}</span>
+                          {/* Timing Live Status Indicator */}
+                          {prod.timings && prod.timings.length > 0 && (
+                            <span className={`card-badge-timing ${timingInfo.isActive ? 'now-available' : 'upcoming'}`}>
+                              {timingInfo.isActive ? '● ACTIVE NOW' : '🕒 SCHEDULED'}
+                            </span>
                           )}
 
-                          <div className="m2-card-price-row">
-                            <div className="m2-price-wrap">
-                              <span className="m2-price-currency">₹</span>
-                              <span className="m2-price-main">{prod.price.replace(/[^\d.]/g, '')}</span>
-                              {prod.unit && prod.unit !== 'PCS' && (
-                                <span className="m2-unit-tag">/{prod.unit}</span>
+                          <div className="m2-card-img-wrap">
+                            {prod.image ? (
+                              <img
+                                src={prod.image}
+                                alt={prod.name}
+                                className="m2-card-img"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  if (e.target.nextSibling) {
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="m2-card-img-placeholder"
+                              style={{ display: prod.image ? 'none' : 'flex' }}
+                            >
+                              <span>{prod.name.charAt(0)}</span>
+                            </div>
+                          </div>
+
+                          <div className="m2-card-content">
+                            <div className="m2-card-meta-row">
+                              {/* Food Type Indicator Dot/Pill (Veg / Non Veg) */}
+                              {prod.foodType && (
+                                <span className={`m2-diet-badge ${prod.foodType.toLowerCase().includes('non') ? 'non-veg' : 'veg'}`}>
+                                  <span className="diet-dot"></span>
+                                  {prod.foodType}
+                                </span>
+                              )}
+
+                              {/* Session Timing Pill with Start & End Time (e.g. 12:45 - 03:45) */}
+                              {prod.timings && prod.timings.length > 0 ? (
+                                <span className={`m2-timing-pill ${timingInfo.isActive ? 'active-window' : ''}`} title={`${prod.timings[0].startTime} to ${prod.timings[0].endTime}`}>
+                                  <Clock size={10} className="timing-icon" />
+                                  <span className="session-txt">{prod.timings[0].sessionName.replace('-', ' ')}</span>
+                                  <span className="time-range-txt">
+                                    {prod.timings[0].startTime.slice(0, 5)} - {prod.timings[0].endTime.slice(0, 5)}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="m2-category-pill">{catGroup.name}</span>
                               )}
                             </div>
-                            {mrpNum && mrpNum > priceNum && (
-                              <div className="m2-mrp-group">
-                                <span className="m2-mrp-old">₹{mrpNum}</span>
-                                {discount > 0 && (
-                                  <span className="m2-discount-tag">Save {discount}%</span>
+
+                            <h3 className="m2-card-title">{prod.name}</h3>
+
+                            {/* Manufacturer / Subtitle if available */}
+                            {prod.manufacturer && (
+                              <span className="m2-mfr-subtitle">By {prod.manufacturer}</span>
+                            )}
+
+                            <div className="m2-card-price-row">
+                              <div className="m2-price-wrap">
+                                <span className="m2-price-currency">₹</span>
+                                <span className="m2-price-main">{prod.price.replace(/[^\d.]/g, '')}</span>
+                                {prod.unit && prod.unit !== 'PCS' && (
+                                  <span className="m2-unit-tag">/{prod.unit}</span>
                                 )}
                               </div>
-                            )}
+                              {mrpNum && mrpNum > priceNum && (
+                                <div className="m2-mrp-group">
+                                  <span className="m2-mrp-old">₹{mrpNum}</span>
+                                  {discount > 0 && (
+                                    <span className="m2-discount-tag">Save {discount}%</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            {/* Second Set (Duplicate for Marquee Loop) */}
+            <div className="m2-categories-container" aria-hidden="true">
+              {categories.map((catGroup, catIdx) => (
+                <section key={`set2-${catGroup.id}-${catIdx}`} className="m2-cat-section">
+                  {catGroup.products.length > 0 && catGroup.name !== 'MENU ITEMS' && (
+                    <div className="m2-cat-header">
+                      <h2 className="m2-cat-name">
+                        <UtensilsCrossed size={18} className="cat-icon-svg" />
+                        {catGroup.name}
+                      </h2>
+                      <div className="m2-cat-divider"></div>
+                      <span className="cat-count-badge">{catGroup.products.length} ITEMS</span>
+                    </div>
+                  )}
+
+                  <div className="m2-tv-grid">
+                    {catGroup.products.map((prod, idx) => {
+                      const priceNum = parseFloat(prod.price.replace(/[^\d.]/g, '')) || 0;
+                      const mrpNum = prod.mrp ? parseFloat(prod.mrp.replace(/[^\d.]/g, '')) : null;
+                      const discount = mrpNum && mrpNum > priceNum ? Math.round(((mrpNum - priceNum) / mrpNum) * 100) : 0;
+                      const timingInfo = checkTimingStatus(prod.timings);
+
+                      return (
+                        <div 
+                          key={`set2-${prod.id}-${idx}`} 
+                          className={`m2-tv-card ${timingInfo.isActive ? 'timing-active' : 'timing-scheduled'}`}
+                        >
+                          {/* Dynamic API & Feature Badges */}
+                          {prod.badges && prod.badges.length > 0 ? (
+                            <span className={`card-badge ${prod.badges[0].name.toLowerCase().includes('bestseller') ? 'bestseller' : 'special'}`}>
+                              <Award size={11} className="badge-svg-icon" /> {prod.badges[0].name}
+                            </span>
+                          ) : (idx % catGroup.products.length) === 0 ? (
+                            <span className="card-badge bestseller">
+                              <Award size={11} className="badge-svg-icon" /> Chef's Pick
+                            </span>
+                          ) : (idx % catGroup.products.length) === 1 && discount > 0 ? (
+                            <span className="card-badge special">
+                              <Flame size={11} className="badge-svg-icon" /> Special {discount}% Off
+                            </span>
+                          ) : null}
+
+                          {/* Timing Live Status Indicator */}
+                          {prod.timings && prod.timings.length > 0 && (
+                            <span className={`card-badge-timing ${timingInfo.isActive ? 'now-available' : 'upcoming'}`}>
+                              {timingInfo.isActive ? '● ACTIVE NOW' : '🕒 SCHEDULED'}
+                            </span>
+                          )}
+
+                          <div className="m2-card-img-wrap">
+                            {prod.image ? (
+                              <img
+                                src={prod.image}
+                                alt={prod.name}
+                                className="m2-card-img"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  if (e.target.nextSibling) {
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="m2-card-img-placeholder"
+                              style={{ display: prod.image ? 'none' : 'flex' }}
+                            >
+                              <span>{prod.name.charAt(0)}</span>
+                            </div>
+                          </div>
+
+                          <div className="m2-card-content">
+                            <div className="m2-card-meta-row">
+                              {/* Food Type Indicator Dot/Pill (Veg / Non Veg) */}
+                              {prod.foodType && (
+                                <span className={`m2-diet-badge ${prod.foodType.toLowerCase().includes('non') ? 'non-veg' : 'veg'}`}>
+                                  <span className="diet-dot"></span>
+                                  {prod.foodType}
+                                </span>
+                              )}
+
+                              {/* Session Timing Pill with Start & End Time (e.g. 12:45 - 03:45) */}
+                              {prod.timings && prod.timings.length > 0 ? (
+                                <span className={`m2-timing-pill ${timingInfo.isActive ? 'active-window' : ''}`} title={`${prod.timings[0].startTime} to ${prod.timings[0].endTime}`}>
+                                  <Clock size={10} className="timing-icon" />
+                                  <span className="session-txt">{prod.timings[0].sessionName.replace('-', ' ')}</span>
+                                  <span className="time-range-txt">
+                                    {prod.timings[0].startTime.slice(0, 5)} - {prod.timings[0].endTime.slice(0, 5)}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="m2-category-pill">{catGroup.name}</span>
+                              )}
+                            </div>
+
+                            <h3 className="m2-card-title">{prod.name}</h3>
+
+                            {/* Manufacturer / Subtitle if available */}
+                            {prod.manufacturer && (
+                              <span className="m2-mfr-subtitle">By {prod.manufacturer}</span>
+                            )}
+
+                            <div className="m2-card-price-row">
+                              <div className="m2-price-wrap">
+                                <span className="m2-price-currency">₹</span>
+                                <span className="m2-price-main">{prod.price.replace(/[^\d.]/g, '')}</span>
+                                {prod.unit && prod.unit !== 'PCS' && (
+                                  <span className="m2-unit-tag">/{prod.unit}</span>
+                                )}
+                              </div>
+                              {mrpNum && mrpNum > priceNum && (
+                                <div className="m2-mrp-group">
+                                  <span className="m2-mrp-old">₹{mrpNum}</span>
+                                  {discount > 0 && (
+                                    <span className="m2-discount-tag">Save {discount}%</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
           </div>
         )}
       </main>

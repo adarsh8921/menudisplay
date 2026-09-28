@@ -4,10 +4,16 @@ const API_PRODUCT_IMAGE_BASE = 'https://kiosk.datacubeglobal.com/storage/product
 
 export async function fetchKioskProducts() {
   try {
-    let response = await fetch(PRIMARY_API_URL);
+    let response;
     let isWebProductsApi = true;
+    try {
+      response = await fetch(PRIMARY_API_URL);
+    } catch (e) {
+      // Ignore network/CORS errors for primary API and try fallback
+      console.warn('Primary API fetch failed, trying fallback', e);
+    }
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       response = await fetch(FALLBACK_API_URL);
       isWebProductsApi = false;
     }
@@ -19,7 +25,7 @@ export async function fetchKioskProducts() {
     const data = await response.json();
     const categoriesWithProducts = [];
 
-    if (data.products && Array.isArray(data.products)) {
+    if (data.products && Array.isArray(data.products) && data.products.length > 0) {
       const allProductsList = [];
       data.products.forEach((p) => {
         allProductsList.push(transformApiProduct(p));
@@ -34,13 +40,16 @@ export async function fetchKioskProducts() {
       data.categories.forEach((cat) => {
         const catProducts = [];
 
-        if (Array.isArray(cat.subcategories)) {
-          cat.subcategories.forEach((subCat) => {
-            if (Array.isArray(subCat.products)) {
-              subCat.products.forEach((p) => {
-                catProducts.push(transformApiProduct(p, cat.name, subCat.name));
-              });
+        if (Array.isArray(cat.products)) {
+          cat.products.forEach((p) => {
+            let subCatName = '';
+            if (Array.isArray(cat.subcategories)) {
+              const foundSubCat = cat.subcategories.find((sc) => sc.id === p.subcat_id);
+              if (foundSubCat) {
+                subCatName = foundSubCat.name;
+              }
             }
+            catProducts.push(transformApiProduct(p, cat.name, subCatName));
           });
         }
 
