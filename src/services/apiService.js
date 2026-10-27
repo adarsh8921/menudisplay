@@ -2,20 +2,35 @@ const PRIMARY_API_URL = 'https://kiosk.datacubeglobal.com/api/web-products/GRD50
 const FALLBACK_API_URL = 'https://kiosk.datacubeglobal.com/api/products/KSK1122';
 const API_PRODUCT_IMAGE_BASE = 'https://kiosk.datacubeglobal.com/storage/productImage/';
 
-export async function fetchKioskProducts() {
+export async function fetchKioskProducts(customCode = null) {
   try {
     let response;
     let isWebProductsApi = true;
-    try {
-      response = await fetch(PRIMARY_API_URL);
-    } catch (e) {
-      // Ignore network/CORS errors for primary API and try fallback
-      console.warn('Primary API fetch failed, trying fallback', e);
-    }
+    let usedEndpoint = customCode || 'GRD5001';
 
-    if (!response || !response.ok) {
-      response = await fetch(FALLBACK_API_URL);
-      isWebProductsApi = false;
+    if (customCode) {
+      // Try custom web-products first, then products
+      try {
+        response = await fetch(`https://kiosk.datacubeglobal.com/api/web-products/${customCode}`);
+      } catch (e) {
+        console.warn('Custom web-products fetch failed', e);
+      }
+      if (!response || !response.ok) {
+        response = await fetch(`https://kiosk.datacubeglobal.com/api/products/${customCode}`);
+        isWebProductsApi = false;
+      }
+    } else {
+      try {
+        response = await fetch(PRIMARY_API_URL);
+      } catch (e) {
+        console.warn('Primary API fetch failed, trying fallback', e);
+      }
+
+      if (!response || !response.ok) {
+        response = await fetch(FALLBACK_API_URL);
+        isWebProductsApi = false;
+        usedEndpoint = 'KSK1122';
+      }
     }
 
     if (!response.ok) {
@@ -66,7 +81,7 @@ export async function fetchKioskProducts() {
     return {
       success: true,
       categories: categoriesWithProducts,
-      apiEndpoint: isWebProductsApi ? 'GRD5001' : 'KSK1122',
+      apiEndpoint: usedEndpoint,
     };
   } catch (error) {
     console.error('Error fetching Products API:', error);

@@ -16,7 +16,11 @@ import {
   CheckCircle2,
   UtensilsCrossed,
   Pause,
-  Play
+  Play,
+  Settings,
+  X,
+  Code2,
+  Palette
 } from 'lucide-react';
 
 export default function Model2KitchenBoard() {
@@ -28,6 +32,12 @@ export default function Model2KitchenBoard() {
   const [sessionFilter, setSessionFilter] = useState('all'); // 'all' | 'now' | 'breakfast' | 'lunch' | 'evening-snacks'
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const scrollContainerRef = useRef(null);
+
+  // Settings Modal State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [customCodeInput, setCustomCodeInput] = useState('');
+  const [apiEndpoint, setApiEndpoint] = useState('GRD5001');
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Live real-time clock for TV display
   useEffect(() => {
@@ -43,28 +53,34 @@ export default function Model2KitchenBoard() {
     return () => clearInterval(timer);
   }, []);
 
-  const [apiEndpoint, setApiEndpoint] = useState('GRD5001');
-  const [errorMsg, setErrorMsg] = useState('');
+  async function loadData(code = null) {
+    setLoading(true);
+    setErrorMsg('');
+    const res = await fetchKioskProducts(code);
+    if (res.success && res.categories.length > 0) {
+      setCategories(res.categories);
+      if (res.apiEndpoint) {
+        setApiEndpoint(res.apiEndpoint);
+      }
+    } else {
+      setErrorMsg(`Failed: ${res.error || 'No categories found'}`);
+    }
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const res = await fetchKioskProducts();
-      if (res.success && res.categories.length > 0) {
-        setCategories(res.categories);
-        if (res.apiEndpoint) {
-          setApiEndpoint(res.apiEndpoint);
-        }
-      } else {
-        setErrorMsg(`Failed: ${res.error || 'No categories found'}`);
-      }
-      setLoading(false);
-    }
-
     loadData();
   }, []);
 
-  // Automatic smooth TV Horizontal Infinite Auto-Scroll with sub-pixel accuracy
+  const handleApplyCode = (e) => {
+    e.preventDefault();
+    if (customCodeInput.trim()) {
+      loadData(customCodeInput.trim().toUpperCase());
+      setIsSettingsOpen(false);
+    }
+  };
+
+  // Automatic GPU-accelerated ultra-smooth TV Horizontal Infinite Auto-Scroll (60+ FPS)
   useEffect(() => {
     if (!isAutoScroll || loading) return;
 
@@ -75,20 +91,21 @@ export default function Model2KitchenBoard() {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Initialize scroll position from current container state
-    scrollPos = container.scrollLeft;
+    const wrapper = container.querySelector('.marquee-wrapper');
+    if (!wrapper) return;
+
+    // Reset container.scrollLeft so native scroll does not interfere
+    container.scrollLeft = 0;
 
     const onMouseEnter = () => { isPaused = true; };
     const onMouseLeave = () => { 
       isPaused = false; 
       lastTime = performance.now();
-      scrollPos = container.scrollLeft;
     };
     const onTouchStart = () => { isPaused = true; };
     const onTouchEnd = () => { 
       isPaused = false; 
       lastTime = performance.now();
-      scrollPos = container.scrollLeft;
     };
 
     container.addEventListener('mouseenter', onMouseEnter);
@@ -96,31 +113,28 @@ export default function Model2KitchenBoard() {
     container.addEventListener('touchstart', onTouchStart);
     container.addEventListener('touchend', onTouchEnd);
 
-    // Speed in pixels per second (25px/sec = ~0.4px per frame at 60fps for slow, smooth reading)
-    const pixelsPerSecond = 25;
+    // Speed in pixels per second: ~32px/s provides ultra-smooth, perfectly legible scrolling
+    const pixelsPerSecond = 32;
 
     const scrollStep = (currentTime) => {
       const delta = (currentTime - lastTime) / 1000;
       lastTime = currentTime;
 
-      if (!isPaused && container && delta > 0 && delta < 0.1) {
+      if (!isPaused && wrapper && delta > 0 && delta < 0.1) {
         scrollPos += pixelsPerSecond * delta;
         
-        // Find the wrapper and its first child for exact width calculation
-        const wrapper = container.querySelector('.marquee-wrapper');
-        const firstSet = wrapper ? wrapper.children[0] : null;
-        
+        const firstSet = wrapper.children[0];
         if (firstSet) {
-          // The distance to loop is exactly the width of the first set PLUS the gap (2vw).
           const gapPx = window.innerWidth * 0.02; // 2vw gap
-          const loopWidth = firstSet.getBoundingClientRect().width + gapPx;
+          const loopWidth = firstSet.offsetWidth + gapPx;
           
           if (loopWidth > 0 && scrollPos >= loopWidth) {
             scrollPos -= loopWidth;
           }
         }
         
-        container.scrollLeft = scrollPos;
+        // GPU accelerated sub-pixel translation (hardware compositing)
+        wrapper.style.transform = `translate3d(-${scrollPos.toFixed(2)}px, 0, 0)`;
       }
       animationFrameId = requestAnimationFrame(scrollStep);
     };
@@ -208,51 +222,151 @@ export default function Model2KitchenBoard() {
           </div>
         </div>
 
-        {/* Live TV Clock & API Info */}
+        {/* Live TV Clock & Code / Settings Button */}
         <div className="m2-live-status-box">
-          <div className="m2-theme-controls">
-            <span className="theme-label">Theme:</span>
-            <button
-              className={`theme-btn ${themeMode === 'dark' ? 'active' : ''}`}
-              onClick={() => setThemeMode('dark')}
-            >
-              <Moon size={13} className="btn-icon" /> Dark
-            </button>
-            <button
-              className={`theme-btn ${themeMode === 'cream' ? 'active' : ''}`}
-              onClick={() => setThemeMode('cream')}
-            >
-              <Sun size={13} className="btn-icon" /> Cream
-            </button>
-            <button
-              className={`theme-btn ${themeMode === 'golden' ? 'active' : ''}`}
-              onClick={() => setThemeMode('golden')}
-            >
-              <Sparkles size={13} className="btn-icon" /> Gold
-            </button>
-          </div>
-
-          <button 
-            className={`m2-autoscroll-toggle ${isAutoScroll ? 'active' : ''}`}
-            onClick={() => setIsAutoScroll(!isAutoScroll)}
-            title={isAutoScroll ? "Click to Pause Auto-Scroll" : "Click to Resume Auto-Scroll"}
-          >
-            {isAutoScroll ? <Pause size={12} className="m2-badge-icon" /> : <Play size={12} className="m2-badge-icon" />}
-            <span>{isAutoScroll ? 'AUTO SCROLL: ON' : 'AUTO SCROLL: OFF'}</span>
-          </button>
-
           <div className="m2-time-badge">
             <span className="pulse-dot"></span>
             <Clock size={15} className="m2-badge-icon" />
             <span className="time-text">{currentTime || '12:00 PM'}</span>
           </div>
 
-          <div className="m2-api-badge">
-            <Radio size={12} className="m2-badge-icon" />
-            <span>LIVE API: {apiEndpoint}</span>
-          </div>
+          <button 
+            className="m2-code-open-btn"
+            onClick={() => setIsSettingsOpen(true)}
+            title="Open Settings & Code Input"
+          >
+            <Code2 size={13} className="m2-badge-icon" />
+            <span className="code-text-label">CODE: {apiEndpoint}</span>
+            <Settings size={13} className="m2-badge-icon gear-icon" />
+          </button>
         </div>
       </header>
+
+      {/* Settings & Code Type Modal Screen */}
+      {isSettingsOpen && (
+        <div className="m2-modal-backdrop" onClick={() => setIsSettingsOpen(false)}>
+          <div className="m2-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="m2-modal-header">
+              <div className="m2-modal-title-wrap">
+                <Settings size={20} className="modal-title-icon" />
+                <h3>Display Settings & Configuration</h3>
+              </div>
+              <button 
+                className="m2-modal-close-btn" 
+                onClick={() => setIsSettingsOpen(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="m2-modal-body">
+              {/* Option 1: Code Type Option First */}
+              <div className="m2-settings-section">
+                <label className="m2-section-label">
+                  <Code2 size={15} className="section-label-icon" />
+                  <span>Kiosk Code / API Endpoint</span>
+                </label>
+                <p className="m2-section-hint">Enter your store/kiosk code to load products (e.g. KSK1122, GRD5001)</p>
+                <form onSubmit={handleApplyCode} className="m2-code-form">
+                  <input
+                    type="text"
+                    className="m2-code-input"
+                    placeholder={`Current: ${apiEndpoint}`}
+                    value={customCodeInput}
+                    onChange={(e) => setCustomCodeInput(e.target.value)}
+                    autoFocus
+                  />
+                  <button type="submit" className="m2-code-apply-btn">
+                    Apply Code
+                  </button>
+                </form>
+                <div className="m2-quick-codes">
+                  <span className="quick-label">Presets:</span>
+                  <button 
+                    type="button" 
+                    className={`quick-btn ${apiEndpoint === 'KSK1122' ? 'active' : ''}`}
+                    onClick={() => { setCustomCodeInput('KSK1122'); loadData('KSK1122'); setIsSettingsOpen(false); }}
+                  >
+                    KSK1122
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`quick-btn ${apiEndpoint === 'GRD5001' ? 'active' : ''}`}
+                    onClick={() => { setCustomCodeInput('GRD5001'); loadData('GRD5001'); setIsSettingsOpen(false); }}
+                  >
+                    GRD5001
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Themes */}
+              <div className="m2-settings-section">
+                <label className="m2-section-label">
+                  <Palette size={15} className="section-label-icon" />
+                  <span>Display Theme</span>
+                </label>
+                <div className="m2-theme-options-grid">
+                  <button
+                    className={`modal-theme-card ${themeMode === 'cream' ? 'selected' : ''}`}
+                    onClick={() => setThemeMode('cream')}
+                  >
+                    <Sun size={18} className="theme-card-icon" />
+                    <span className="theme-card-title">Cream</span>
+                    <span className="theme-card-desc">Warm editorial clean style</span>
+                  </button>
+                  <button
+                    className={`modal-theme-card ${themeMode === 'dark' ? 'selected' : ''}`}
+                    onClick={() => setThemeMode('dark')}
+                  >
+                    <Moon size={18} className="theme-card-icon" />
+                    <span className="theme-card-title">Dark Mode</span>
+                    <span className="theme-card-desc">Sleek high contrast TV look</span>
+                  </button>
+                  <button
+                    className={`modal-theme-card ${themeMode === 'golden' ? 'selected' : ''}`}
+                    onClick={() => setThemeMode('golden')}
+                  >
+                    <Sparkles size={18} className="theme-card-icon" />
+                    <span className="theme-card-title">Golden Luxury</span>
+                    <span className="theme-card-desc">Premium ambient amber gold</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Auto-Scroll & More Options */}
+              <div className="m2-settings-section">
+                <label className="m2-section-label">
+                  <Play size={15} className="section-label-icon" />
+                  <span>Playback & Motion</span>
+                </label>
+                <div className="m2-toggle-row">
+                  <div className="m2-toggle-info">
+                    <span className="toggle-title">TV Auto-Scroll</span>
+                    <span className="toggle-subtitle">Smooth horizontal ticker marquee scroll</span>
+                  </div>
+                  <button 
+                    className={`m2-switch-btn ${isAutoScroll ? 'on' : 'off'}`}
+                    onClick={() => setIsAutoScroll(!isAutoScroll)}
+                  >
+                    {isAutoScroll ? 'ENABLED' : 'PAUSED'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="m2-modal-footer">
+              <span className="m2-active-status-tag">Connected: {apiEndpoint}</span>
+              <button 
+                className="m2-modal-done-btn"
+                onClick={() => setIsSettingsOpen(false)}
+              >
+                Close & Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="m2-tv-body" ref={scrollContainerRef}>
@@ -526,28 +640,12 @@ export default function Model2KitchenBoard() {
         )}
       </main>
 
-      {/* Ticker marquee broadcast footer */}
+      {/* Down side banner showing single scrolling consumption notice */}
       <footer className="m2-tv-footer">
         <div className="m2-ticker-wrap">
           <div className="m2-ticker-move">
             <span className="ticker-item">
-              <Flame size={14} className="ticker-svg" /> TODAY'S SPECIAL: FRESH PREPARED CHEF DELIGHTS
-            </span>
-            <span className="ticker-sep">•</span>
-            <span className="ticker-item">
-              <Truck size={14} className="ticker-svg" /> AVAILABLE FOR DELIVERY ON GOFOOD & SWIGGY
-            </span>
-            <span className="ticker-sep">•</span>
-            <span className="ticker-item">
-              <Clock size={14} className="ticker-svg" /> OPEN DAILY: 7:30 AM — 11:00 PM
-            </span>
-            <span className="ticker-sep">•</span>
-            <span className="ticker-item">
-              <MapPin size={14} className="ticker-svg" /> VISIT US AT JL. JOHAR NO. 72
-            </span>
-            <span className="ticker-sep">•</span>
-            <span className="ticker-item">
-              <CheckCircle2 size={14} className="ticker-svg" /> ALL TAXES INCLUDED IN DISPLAYED PRICES
+              <Clock size={18} className="ticker-svg" /> Consume the food within 2 Hours from the time of packing
             </span>
           </div>
         </div>

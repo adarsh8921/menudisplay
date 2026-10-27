@@ -31,7 +31,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* Model Switcher Bar - hidden in fullscreen mode */}
       {!isFullscreen && (
         <div className="model-switcher-bar">
