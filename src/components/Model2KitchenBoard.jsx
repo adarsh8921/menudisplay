@@ -57,13 +57,14 @@ export default function Model2KitchenBoard() {
     setLoading(true);
     setErrorMsg('');
     const res = await fetchKioskProducts(code);
+    if (res.apiEndpoint) {
+      setApiEndpoint(res.apiEndpoint);
+    }
     if (res.success && res.categories.length > 0) {
       setCategories(res.categories);
-      if (res.apiEndpoint) {
-        setApiEndpoint(res.apiEndpoint);
-      }
     } else {
-      setErrorMsg(`Failed: ${res.error || 'No categories found'}`);
+      setCategories([]);
+      setErrorMsg(res.message || res.error || 'Products not found');
     }
     setLoading(false);
   }
@@ -376,8 +377,20 @@ export default function Model2KitchenBoard() {
             <p>CONNECTING TO RESTAURANT MENU FEED...</p>
           </div>
         ) : errorMsg ? (
-          <div className="m2-loading-screen" style={{color: 'red'}}>
-            <p>{errorMsg}</p>
+          <div className="m2-loading-screen">
+            <div className="m2-not-found-card">
+              <UtensilsCrossed size={36} className="m2-not-found-icon" />
+              <h3 className="m2-not-found-title">{errorMsg}</h3>
+              <p className="m2-not-found-desc">Kiosk Code: <strong>{apiEndpoint}</strong></p>
+              <button 
+                className="m2-code-open-btn" 
+                style={{ marginTop: '12px' }}
+                onClick={() => setIsSettingsOpen(true)}
+              >
+                <Settings size={14} className="m2-badge-icon" />
+                <span>Change Kiosk Code</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="marquee-wrapper" style={{ display: 'flex', gap: '2vw', height: '100%' }}>

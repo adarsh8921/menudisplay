@@ -33,12 +33,43 @@ export async function fetchKioskProducts(customCode = null) {
       }
     }
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+    let data = null;
+    if (response) {
+      try {
+        data = await response.json();
+      } catch (err) {
+        // Not a JSON body
+      }
     }
 
-    const data = await response.json();
+    if (data && (data.message || data.status)) {
+      if (data.message && data.message.toLowerCase().includes('products not found')) {
+        return {
+          success: false,
+          error: data.message,
+          message: data.message,
+          categories: [],
+          apiEndpoint: usedEndpoint,
+        };
+      }
+    }
+
+    if (!response || !response.ok) {
+      const errMsg = (data && data.message) ? data.message : `HTTP error! Status: ${response ? response.status : 'Unknown'}`;
+      throw new Error(errMsg);
+    }
+
     const categoriesWithProducts = [];
+
+    if (data && data.message && (!data.products || data.products.length === 0) && (!data.categories || data.categories.length === 0)) {
+      return {
+        success: false,
+        error: data.message,
+        message: data.message,
+        categories: [],
+        apiEndpoint: usedEndpoint,
+      };
+    }
 
     if (data.products && Array.isArray(data.products) && data.products.length > 0) {
       const allProductsList = [];
@@ -120,7 +151,20 @@ function transformApiProduct(p, catName = 'CATEGORY', subCatName = '') {
     }
   }
 
-  const name = p.product_name || p.name || 'Product Name';
+  // Extract product title from API (check product_name, description, translations, or name)
+  let name = null;
+  if (p.product_name && typeof p.product_name === 'string' && p.product_name.trim() !== '') {
+    name = p.product_name.trim();
+  } else if (p.description && typeof p.description === 'string' && p.description.trim() !== '') {
+    name = p.description.trim();
+  } else if (Array.isArray(p.translations) && p.translations.length > 0 && p.translations[0]?.name) {
+    name = p.translations[0].name.trim();
+  } else if (p.name && typeof p.name === 'string' && p.name.trim() !== '') {
+    name = p.name.trim();
+  } else {
+    name = 'Product';
+  }
+
   const priceVal = p.retail_price || p.srate || p.mrp || p.wholesale_price || p.price || '0';
 
   // Extract timings info (e.g. breakfast, lunch, evening-snacks, start_time, end_time)
